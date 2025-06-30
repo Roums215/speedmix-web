@@ -77,11 +77,24 @@ const APP_STATE = {
 document.addEventListener('DOMContentLoaded', () => {
     initAudio();
     initEventListeners();
-    initSimulation();
     
-    // Par défaut, commencer en mode simulation
-    if (CONFIG.gps.simulationMode) {
-        startSimulation();
+    // Vérification de sécurité pour les fonctions GPS
+    if (typeof window.initSimulation === 'function') {
+        console.log("Initialisation de la simulation GPS");
+        window.initSimulation();
+        
+        // Par défaut, commencer en mode simulation
+        if (CONFIG.gps.simulationMode && typeof window.startSimulation === 'function') {
+            window.startSimulation();
+        }
+    } else {
+        console.warn("Les fonctions GPS ne sont pas disponibles - chargement des scripts incomplet");
+        // Implémentation de secours pour initSimulation
+        if (DOM.simSpeedSlider && DOM.simSpeedValue && DOM.simAccelSlider && DOM.simAccelValue) {
+            DOM.simSpeedValue.textContent = `${DOM.simSpeedSlider.value} km/h`;
+            DOM.simAccelValue.textContent = `${DOM.simAccelSlider.value} km/h/s`;
+            console.log("Valeurs de simulation initialisées en secours");
+        }
     }
     
     // Charger automatiquement des sons synthétisés
@@ -123,8 +136,8 @@ function initEventListeners() {
     DOM.btnStop.addEventListener('click', stopPlayback);
     
     // Simulation - avec vérification de sécurité
-    if (typeof updateSimulatedSpeed === 'function') {
-        DOM.simSpeedSlider.addEventListener('input', updateSimulatedSpeed);
+    if (typeof window.updateSimulatedSpeed === 'function') {
+        DOM.simSpeedSlider.addEventListener('input', window.updateSimulatedSpeed);
     } else {
         console.warn("Fonction updateSimulatedSpeed non disponible");
         DOM.simSpeedSlider.addEventListener('input', () => {
@@ -133,8 +146,8 @@ function initEventListeners() {
         });
     }
     
-    if (typeof updateSimulatedAcceleration === 'function') {
-        DOM.simAccelSlider.addEventListener('input', updateSimulatedAcceleration);
+    if (typeof window.updateSimulatedAcceleration === 'function') {
+        DOM.simAccelSlider.addEventListener('input', window.updateSimulatedAcceleration);
     } else {
         console.warn("Fonction updateSimulatedAcceleration non disponible");
         DOM.simAccelSlider.addEventListener('input', () => {
@@ -143,8 +156,8 @@ function initEventListeners() {
         });
     }
     
-    if (typeof toggleGPSMode === 'function') {
-        DOM.btnSimGps.addEventListener('click', toggleGPSMode);
+    if (typeof window.toggleGPSMode === 'function') {
+        DOM.btnSimGps.addEventListener('click', window.toggleGPSMode);
     } else {
         console.warn("Fonction toggleGPSMode non disponible");
         DOM.btnSimGps.addEventListener('click', () => {

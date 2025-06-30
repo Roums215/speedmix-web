@@ -850,4 +850,7 @@ window.formatTime = function(seconds) {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
-}
+};
+
+// Export explicite de toutes les fonctions globalement pour assurer la disponibilité
+console.log("GPS.js chargé avec succès");
