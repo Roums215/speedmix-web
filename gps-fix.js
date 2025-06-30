@@ -157,20 +157,84 @@ function startRealGPSTracking() {
     }
 }
 
+// Variables pour le lissage de vitesse
+let speedValues = [];
+let lastSpeed = 0;
+const SPEED_THRESHOLD = 0.5; // km/h - seuil minimal de changement
+const SPEED_HISTORY_SIZE = 5; // nombre de valeurs à conserver pour le lissage
+let lastSpeedUpdateTime = 0;
+
 // Traitement des mises à jour de position GPS
 function handlePositionUpdate(position) {
     try {
-        const speed = position.coords.speed ? position.coords.speed * 3.6 : 0; // m/s à km/h
-        updateStatus("Vitesse GPS: " + speed.toFixed(1) + " km/h");
-        
-        // Mettre à jour l'affichage de la vitesse
-        if (window.DOM.speed) {
-            window.DOM.speed.textContent = speed.toFixed(1) + " ";
+        // Vérifier si la vitesse est disponible dans les données GPS
+        let currentRawSpeed = 0;
+        if (position.coords.speed !== null && position.coords.speed !== undefined) {
+            currentRawSpeed = position.coords.speed * 3.6; // m/s à km/h
+            console.log("Vitesse GPS brute reçue: " + currentRawSpeed.toFixed(1) + " km/h");
+        } else {
+            // Estimer la vitesse par la distance si plusieurs positions disponibles
+            console.log("Vitesse GPS non disponible, estimation par distance non implémentée");
+            
+            // Conserver la dernière vitesse connue mais la dégrader légèrement
+            const now = Date.now();
+            const elapsedSecs = (now - lastSpeedUpdateTime) / 1000;
+            if (elapsedSecs > 5 && lastSpeed > 0) {
+                // Dégrader la vitesse de 10% toutes les 5 secondes sans mise à jour
+                currentRawSpeed = lastSpeed * 0.9;
+                console.log("Dégradation progressive de la vitesse: " + currentRawSpeed.toFixed(1));
+            } else {
+                currentRawSpeed = lastSpeed;
+            }
+            lastSpeedUpdateTime = now;
+        }
+
+        // Ajouter la vitesse actuelle à l'historique pour le lissage
+        if (currentRawSpeed > 0 || speedValues.length === 0) {
+            speedValues.push(currentRawSpeed);
         }
         
-        if (window.DOM.speedStatus) {
-            window.DOM.speedStatus.textContent = speed > 5 ? '🚗 En mouvement' : '⏸️ À l\'arrêt';
+        // Limiter la taille de l'historique
+        if (speedValues.length > SPEED_HISTORY_SIZE) {
+            speedValues.shift();
         }
+        
+        // Calculer la moyenne pour lisser les fluctuations
+        let smoothedSpeed = 0;
+        if (speedValues.length > 0) {
+            smoothedSpeed = speedValues.reduce((sum, val) => sum + val, 0) / speedValues.length;
+        }
+        
+        // Ne mettre à jour que si le changement dépasse un certain seuil
+        // ou si on passe d'un état mouvement à arrêt (ou vice versa)
+        const isMovingChanged = (lastSpeed <= 1 && smoothedSpeed > 1) || (lastSpeed > 1 && smoothedSpeed <= 1);
+        const speedChangedEnough = Math.abs(smoothedSpeed - lastSpeed) > SPEED_THRESHOLD;
+        
+        if (speedChangedEnough || isMovingChanged || speedValues.length <= 2) {
+            lastSpeed = smoothedSpeed;
+            updateStatus("Vitesse GPS: " + smoothedSpeed.toFixed(1) + " km/h");
+            
+            // Mettre à jour l'affichage de la vitesse
+            if (window.DOM && window.DOM.speed) {
+                window.DOM.speed.textContent = smoothedSpeed.toFixed(1) + " ";
+            } else {
+                console.warn("DOM.speed non disponible pour l'affichage");
+            }
+            
+            if (window.DOM && window.DOM.speedStatus) {
+                window.DOM.speedStatus.textContent = smoothedSpeed > 5 ? '🚗 En mouvement' : '⏸️ À l\'arrêt';
+            }
+            
+            // Adapter l'audio à la vitesse
+            if (window.APP && window.APP.AUDIO && typeof window.APP.AUDIO.adaptMusicToSpeed === 'function') {
+                console.log("Adaptation audio à la vitesse: " + smoothedSpeed.toFixed(1));
+                window.APP.AUDIO.adaptMusicToSpeed(smoothedSpeed);
+            }
+        }
+        
+        // Mise à jour du temps
+        lastSpeedUpdateTime = Date.now();
+        
     } catch (error) {
         console.error("Erreur de traitement GPS:", error);
     }

@@ -190,11 +190,122 @@ window.APP = {
     
     // Fonctions audio
     AUDIO: {
-        adaptMusicToSpeed: function() {
-            if (!APP.STATE.isPlaying || APP.STATE.tracks.length === 0) {
-                return;
+        adaptMusicToSpeed: function(speed) {
+            try {
+                // Si pas de paramètre, utiliser la vitesse stockée
+                if (speed === undefined) {
+                    speed = APP.STATE.currentSpeed;
+                }
+                
+                console.log("Adaptation musicale selon vitesse:", speed);
+                
+                // Vérifier que le lecteur audio est disponible
+                if (!window.audioContext || !window.currentSource) {
+                    console.warn("Lecteur audio non disponible pour l'adaptation à la vitesse");
+                    return;
+                }
+                
+                // Paramètres d'adaptation
+                let playbackRate = 1.0;
+                let filterFrequency = 22050; // valeur par défaut (pas de filtrage)
+                let reverbAmount = 0;
+                
+                // Modifier le tempo en fonction de la vitesse
+                if (speed < 5) {
+                    // Vitesse faible - tempo lent
+                    playbackRate = 0.85 + (speed / 20); // de 0.85 à 1.0
+                    filterFrequency = 1000 + (speed * 200); // de 1000Hz à 2000Hz
+                    reverbAmount = 0.3 - (speed / 50); // plus de reverb à basse vitesse
+                } else if (speed < 30) {
+                    // Vitesse moyenne - tempo normal
+                    playbackRate = 1.0 + ((speed - 5) / 100); // de 1.0 à 1.25
+                    filterFrequency = 2000 + ((speed - 5) * 400); // de 2000Hz à 12000Hz
+                } else {
+                    // Vitesse élevée - tempo rapide
+                    playbackRate = 1.25 + ((speed - 30) / 200); // de 1.25 à 1.5 max
+                    filterFrequency = 12000 + ((speed - 30) * 300); // ouvrir davantage le filtre
+                }
+                
+                // Limiter les valeurs
+                playbackRate = Math.max(0.7, Math.min(playbackRate, 1.5));
+                filterFrequency = Math.min(filterFrequency, 22050);
+                
+                // Appliquer les effets si disponibles
+                if (window.currentSource) {
+                    window.currentSource.playbackRate.value = playbackRate;
+                    console.log("Playback rate ajusté à: " + playbackRate.toFixed(2));
+                }
+                
+                // Appliquer le filtre passe-bas si disponible
+                if (window.lowpassFilter) {
+                    window.lowpassFilter.frequency.value = filterFrequency;
+                    console.log("Filtre passe-bas ajusté à: " + filterFrequency.toFixed(0) + "Hz");
+                }
+                
+                // Activer/désactiver la réverbération
+                if (window.convolver && window.dryGain && window.wetGain) {
+                    window.dryGain.gain.value = 1 - reverbAmount;
+                    window.wetGain.gain.value = reverbAmount;
+                    console.log("Réverbération ajustée à: " + (reverbAmount * 100).toFixed(0) + "%");
+                }
+            } catch (error) {
+                console.error("Erreur lors de l'adaptation de la musique à la vitesse:", error);
             }
-            console.log("Adaptation musicale selon vitesse:", APP.STATE.currentSpeed);
+        },
+        
+        adaptAudioToAcceleration: function(acceleration) {
+            try {
+                // Si pas de paramètre, utiliser l'accélération stockée
+                if (acceleration === undefined) {
+                    acceleration = APP.STATE.currentAcceleration;
+                }
+                
+                console.log("Adaptation audio à l'accélération:", acceleration);
+                
+                // Vérifier que le lecteur audio est disponible
+                if (!window.audioContext || !window.currentSource) {
+                    console.warn("Lecteur audio non disponible pour l'adaptation à l'accélération");
+                    return;
+                }
+                
+                // Détecter les fortes accélérations (positives ou négatives)
+                const accelMagnitude = Math.abs(acceleration);
+                
+                // Adapter les effets en fonction de l'accélération
+                if (accelMagnitude > 10) { // Forte accélération
+                    // Activer un filtre dynamique ou effet spécial
+                    if (window.dynamicCompressor) {
+                        const threshold = -24 - (accelMagnitude - 10); // De -24dB à -34dB
+                        window.dynamicCompressor.threshold.value = Math.max(-50, threshold);
+                        
+                        // Augmenter le ratio pour les accélérations très fortes
+                        const ratio = 4 + (accelMagnitude / 5);
+                        window.dynamicCompressor.ratio.value = Math.min(20, ratio);
+                        
+                        console.log(`Compresseur ajusté: threshold=${window.dynamicCompressor.threshold.value}dB, ratio=${window.dynamicCompressor.ratio.value}:1`);
+                    }
+                    
+                    // Ajouter un effet de distorsion léger si disponible
+                    if (window.distortion && typeof window.updateDistortion === 'function') {
+                        const distortionAmount = Math.min(50, accelMagnitude) / 100;
+                        window.updateDistortion(distortionAmount);
+                        console.log("Distorsion ajustée à: " + (distortionAmount * 100).toFixed(0) + "%");
+                    }
+                    
+                } else { // Accélération normale ou faible
+                    // Rétablir les valeurs par défaut
+                    if (window.dynamicCompressor) {
+                        window.dynamicCompressor.threshold.value = -24;
+                        window.dynamicCompressor.ratio.value = 4;
+                    }
+                    
+                    if (window.distortion && typeof window.updateDistortion === 'function') {
+                        window.updateDistortion(0); // Désactiver la distorsion
+                    }
+                }
+            } catch (error) {
+                console.error("Erreur lors de l'adaptation audio à l'accélération:", error);
+            }
         }
     }
 };
