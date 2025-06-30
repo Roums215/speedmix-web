@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DJ Speed Mix</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>DJ Speed Mix</h1>
+            <p>Adaptation musicale selon la vitesse et l'accélération</p>
+        </header>
+
+        <div class="speed-monitor">
+            <p class="label">VITESSE</p>
+            <h2 class="speed-value">0.0 <span class="speed-unit">km/h</span></h2>
+            <p class="speed-status">🚗 En attente de mouvement</p>
+            <div class="info-container">
+                <div class="info-item">
+                    <span class="info-label">Accélération:</span>
+                    <span class="acceleration-value">0.0 km/h/s</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">État:</span>
+                    <span class="status-value">En attente</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="player-container">
+            <div class="player">
+                <div id="vinyl" class="vinyl">
+                    <div class="vinyl-inner"></div>
+                </div>
+                <div class="track-info">
+                    <h3 id="track-title">Aucun morceau sélectionné</h3>
+                    <p id="track-artist">Importez de la musique pour commencer</p>
+                    <div class="progress-bar">
+                        <div class="progress"></div>
+                    </div>
+                    <div class="track-time">
+                        <span class="current-time">0:00</span>
+                        <span class="total-time">0:00</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="visualizer-container">
+                <canvas id="visualizer" width="450" height="100"></canvas>
+            </div>
+        </div>
+
+        <div class="controls">
+            <input type="file" id="file-input" accept="audio/*,video/mp4" multiple style="display:none">
+            <button class="btn btn-import" id="btn-import">📂 Importer musiques</button>
+            <button class="btn btn-start" id="btn-start">▶️ Démarrer Mix</button>
+            <button class="btn btn-stop" id="btn-stop" style="display:none">⏹️ Arrêter Mix</button>
+        </div>
+
+        <div class="playlist-container">
+            <h3>Liste des morceaux</h3>
+            <ul id="playlist" class="playlist"></ul>
+        </div>
+        
+        <div class="debug-panel">
+            <h4>Mode Debug</h4>
+            <div class="debug-controls">
+                <label>
+                    Simuler vitesse:
+                    <input type="range" id="sim-speed" min="0" max="120" value="0" step="5">
+                    <span id="sim-speed-value">0 km/h</span>
+                </label>
+                <label>
+                    Simuler accélération:
+                    <input type="range" id="sim-accel" min="-10" max="20" value="0" step="1">
+                    <span id="sim-accel-value">0 km/h/s</span>
+                </label>
+                <button id="btn-sim-gps">Utiliser GPS réel</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="synth.js"></script>
+    <script src="app.js"></script>
+    <script src="gps.js"></script>
+    <script src="audio-effects.js"></script>
+</body>
+</html>
