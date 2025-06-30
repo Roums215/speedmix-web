@@ -25,7 +25,13 @@ const CONFIG = {
 };
 
 // ---------- Éléments DOM ---------- //
-const DOM = {
+// Vérifier si DOM existe déjà dans la portée globale
+if (!window.DOM) {
+    window.DOM = {};
+}
+
+// Configuration des éléments DOM
+window.DOM = {
     // Vitesse et données
     speed: document.querySelector('.speed-value'),
     speedStatus: document.querySelector('.speed-status'),

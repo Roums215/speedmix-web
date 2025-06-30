@@ -25,7 +25,7 @@ let autoSimulationInterval = null;
 
 // Alias pour faciliter l'accès
 const GPS = window.APP.GPS;
-const DOM = window.DOM || {};
+// Utiliser directement window.DOM sans créer de variable locale DOM
 
 // Fonction de log sécurisée
 function updateStatus(message) {
