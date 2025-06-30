@@ -1,8 +1,9 @@
 // ---------- Gestion GPS et détection de vitesse ---------- //
 
-// Variables pour la simulation et le suivi GPS
-let simulationInterval;
-let gpsWatchId;
+// Variables globales pour la simulation et le suivi GPS
+let simulationInterval = null;
+let gpsWatchId = null;
+let autoSimulationInterval = null;
 
 // Initialisation de la simulation GPS
 function initSimulation() {
@@ -179,8 +180,7 @@ function updateSimulatedAcceleration() {
     }
 }
 
-// Variable globale pour stocker l'intervalle d'auto-simulation
-let autoSimulationInterval = null;
+// Auto-simulation déjà déclarée en haut du fichier
 
 // Basculer entre GPS réel, simulation manuelle et auto-simulation
 function toggleGPSMode() {
@@ -823,5 +823,30 @@ function updateSpeedDisplay() {
 
 // Mettre à jour le message d'état
 function updateStatusMessage(message) {
-    DOM.status.textContent = message;
+    if (DOM.status) {
+        DOM.status.textContent = message;
+    } else {
+        console.log("Message d'état: " + message);
+    }
+}
+
+// Fonction pour adapter la musique à la vitesse
+function adaptMusicToSpeed(behavior) {
+    // Cette fonction est appelée par updateSpeedData
+    // Elle doit être définie pour éviter les erreurs
+    if (!APP_STATE.isPlaying || APP_STATE.tracks.length === 0) {
+        return;
+    }
+    
+    console.log("Adaptation musicale:", behavior);
+    
+    // Vous pouvez implémenter ici la logique d'adaptation musicale
+    // selon la vitesse et l'accélération
+}
+
+// Formater le temps au format mm:ss
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
 }

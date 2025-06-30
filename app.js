@@ -98,7 +98,11 @@ function initAudio() {
         console.log("Contexte audio initialisé avec succès");
         
         // Message de démarrage
-        updateStatusMessage("Contexte audio initialisé. Utilisation de sons synthétiques.");
+        if (DOM.status && typeof updateStatusMessage === 'function') {
+            updateStatusMessage("Contexte audio initialisé. Utilisation de sons synthétiques.");
+        } else {
+            console.log("Contexte audio initialisé. Utilisation de sons synthétiques.");
+        }
     } catch(e) {
         console.error("Erreur lors de l'initialisation du contexte audio:", e);
         alert("Votre navigateur ne prend pas en charge l'API Web Audio nécessaire pour cette application.");
@@ -118,10 +122,36 @@ function initEventListeners() {
     DOM.btnStart.addEventListener('click', startPlayback);
     DOM.btnStop.addEventListener('click', stopPlayback);
     
-    // Simulation
-    DOM.simSpeedSlider.addEventListener('input', updateSimulatedSpeed);
-    DOM.simAccelSlider.addEventListener('input', updateSimulatedAcceleration);
-    DOM.btnSimGps.addEventListener('click', toggleGPSMode);
+    // Simulation - avec vérification de sécurité
+    if (typeof updateSimulatedSpeed === 'function') {
+        DOM.simSpeedSlider.addEventListener('input', updateSimulatedSpeed);
+    } else {
+        console.warn("Fonction updateSimulatedSpeed non disponible");
+        DOM.simSpeedSlider.addEventListener('input', () => {
+            console.log("Simulation de vitesse: " + DOM.simSpeedSlider.value + " km/h");
+            DOM.simSpeedValue.textContent = `${DOM.simSpeedSlider.value} km/h`;
+        });
+    }
+    
+    if (typeof updateSimulatedAcceleration === 'function') {
+        DOM.simAccelSlider.addEventListener('input', updateSimulatedAcceleration);
+    } else {
+        console.warn("Fonction updateSimulatedAcceleration non disponible");
+        DOM.simAccelSlider.addEventListener('input', () => {
+            console.log("Simulation d'accélération: " + DOM.simAccelSlider.value + " km/h/s");
+            DOM.simAccelValue.textContent = `${DOM.simAccelSlider.value} km/h/s`;
+        });
+    }
+    
+    if (typeof toggleGPSMode === 'function') {
+        DOM.btnSimGps.addEventListener('click', toggleGPSMode);
+    } else {
+        console.warn("Fonction toggleGPSMode non disponible");
+        DOM.btnSimGps.addEventListener('click', () => {
+            console.log("Toggle GPS non disponible");
+            alert("La fonction de changement de mode GPS n'est pas disponible actuellement.");
+        });
+    }
 }
 
 // ---------- Gestion des fichiers audio ---------- //
