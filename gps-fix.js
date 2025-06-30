@@ -229,23 +229,61 @@ function startDeviceMotion() {
 }
 
 // Traiter les données des capteurs de mouvement
+let lastAccelUpdate = 0;
+let accelValues = [];
+const ACCEL_UPDATE_THROTTLE = 200; // ms
+
 function handleDeviceMotion(event) {
     try {
-        if (event.acceleration) {
-            // Calculer l'accélération totale
-            const x = event.acceleration.x || 0;
-            const y = event.acceleration.y || 0;
-            const z = event.acceleration.z || 0;
-            
-            // Magnitude de l'accélération (en m/s²)
-            const accelMagnitude = Math.sqrt(x*x + y*y + z*z);
-            
-            // Convertir en km/h/s (approximatif)
-            const accelKmh = accelMagnitude * 3.6;
-            
-            if (window.DOM.acceleration) {
-                window.DOM.acceleration.textContent = accelKmh.toFixed(1) + " km/h/s";
-            }
+        // Limiter la fréquence de mise à jour (toutes les 200ms)
+        const now = Date.now();
+        if (now - lastAccelUpdate < ACCEL_UPDATE_THROTTLE) return;
+        lastAccelUpdate = now;
+        
+        // Vérifier si nous avons access.acceleration ou accelerationIncludingGravity
+        let accelData = { x: 0, y: 0, z: 0 };
+        
+        if (event.acceleration && event.acceleration.x !== null) {
+            // Données d'accélération sans gravité
+            accelData.x = event.acceleration.x;
+            accelData.y = event.acceleration.y;
+            accelData.z = event.acceleration.z;
+            console.log("Accélération sans gravité:", accelData);
+        } else if (event.accelerationIncludingGravity) {
+            // Données d'accélération avec gravité
+            accelData.x = event.accelerationIncludingGravity.x;
+            accelData.y = event.accelerationIncludingGravity.y;
+            accelData.z = event.accelerationIncludingGravity.z - 9.81; // Soustraction approximative de la gravité
+            console.log("Accélération avec gravité (corrigée):", accelData);
+        } else {
+            console.log("Aucune donnée d'accélération disponible dans l'événement", event);
+            return;
+        }
+        
+        // Magnitude de l'accélération (en m/s²)
+        const accelMagnitude = Math.sqrt(accelData.x*accelData.x + accelData.y*accelData.y + accelData.z*accelData.z);
+        
+        // Moyenner les valeurs pour réduire le bruit
+        accelValues.push(accelMagnitude);
+        if (accelValues.length > 5) accelValues.shift();
+        
+        const avgAccel = accelValues.reduce((sum, val) => sum + val, 0) / accelValues.length;
+        
+        // Convertir en km/h/s (approximatif)
+        const accelKmh = avgAccel * 3.6;
+        
+        // Mise à jour de l'affichage
+        console.log("Accélération calculée: " + accelKmh.toFixed(1) + " km/h/s");
+        
+        if (window.DOM && window.DOM.acceleration) {
+            window.DOM.acceleration.textContent = accelKmh.toFixed(1) + " km/h/s";
+        } else {
+            console.warn("Élément DOM.acceleration non disponible pour l'affichage de l'accélération");
+        }
+        
+        // Adaptation du son en fonction de l'accélération
+        if (window.APP && window.APP.AUDIO && typeof window.APP.AUDIO.adaptAudioToAcceleration === 'function') {
+            window.APP.AUDIO.adaptAudioToAcceleration(accelKmh);
         }
     } catch (error) {
         console.error("Erreur de traitement des données d'accélération:", error);
