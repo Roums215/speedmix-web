@@ -75,16 +75,41 @@ const APP_STATE = {
 
 // ---------- Initialisation ---------- //
 document.addEventListener('DOMContentLoaded', () => {
+    console.log("DOMContentLoaded event - Initialisation de l'application");
+    
+    // Vérifier si l'espace de noms global est disponible
+    if (window.APP) {
+        console.log("APP global détecté, initialisation en cours");
+    } else {
+        console.error("ERREUR: L'espace de noms APP n'est pas disponible. global.js n'a pas été chargé correctement.");
+        window.APP = { 
+            GPS: {}, 
+            UTILS: { 
+                updateStatusMessage: function(msg) { console.log(msg); } 
+            } 
+        };
+    }
+    
+    // Initialiser l'audio
     initAudio();
+    
+    // Initialiser les événements
     initEventListeners();
     
-    // Vérification de sécurité pour les fonctions GPS
-    if (typeof window.initSimulation === 'function') {
-        console.log("Initialisation de la simulation GPS");
-        window.initSimulation();
+    // Initialiser la simulation GPS
+    console.log("Initialisation de la simulation GPS");
+    if (typeof window.APP.GPS.initSimulation === 'function') {
+        window.APP.GPS.initSimulation();
         
         // Par défaut, commencer en mode simulation
-        if (CONFIG.gps.simulationMode && typeof window.startSimulation === 'function') {
+        if (window.APP.CONFIG.gps.simulationMode && typeof window.APP.GPS.startSimulation === 'function') {
+            window.APP.GPS.startSimulation();
+        }
+    } else if (typeof window.initSimulation === 'function') {
+        // Fallback aux fonctions globales
+        window.initSimulation();
+        
+        if (CONFIG && CONFIG.gps && CONFIG.gps.simulationMode && typeof window.startSimulation === 'function') {
             window.startSimulation();
         }
     } else {
@@ -98,7 +123,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Charger automatiquement des sons synthétisés
-    loadSynthSounds();
+    try {
+        loadSynthSounds();
+    } catch (error) {
+        console.error("Erreur lors du chargement des sons synthétisés:", error);
+    }
 });
 
 // Initialiser le contexte audio
@@ -135,8 +164,12 @@ function initEventListeners() {
     DOM.btnStart.addEventListener('click', startPlayback);
     DOM.btnStop.addEventListener('click', stopPlayback);
     
-    // Simulation - avec vérification de sécurité
-    if (typeof window.updateSimulatedSpeed === 'function') {
+    // Simulation - avec vérification de sécurité en utilisant l'espace de noms global
+    if (window.APP && window.APP.GPS && typeof window.APP.GPS.updateSimulatedSpeed === 'function') {
+        console.log("Attaching APP.GPS.updateSimulatedSpeed to speed slider");
+        DOM.simSpeedSlider.addEventListener('input', window.APP.GPS.updateSimulatedSpeed);
+    } else if (typeof window.updateSimulatedSpeed === 'function') {
+        console.log("Attaching global updateSimulatedSpeed to speed slider");
         DOM.simSpeedSlider.addEventListener('input', window.updateSimulatedSpeed);
     } else {
         console.warn("Fonction updateSimulatedSpeed non disponible");
@@ -146,7 +179,11 @@ function initEventListeners() {
         });
     }
     
-    if (typeof window.updateSimulatedAcceleration === 'function') {
+    if (window.APP && window.APP.GPS && typeof window.APP.GPS.updateSimulatedAcceleration === 'function') {
+        console.log("Attaching APP.GPS.updateSimulatedAcceleration to accel slider");
+        DOM.simAccelSlider.addEventListener('input', window.APP.GPS.updateSimulatedAcceleration);
+    } else if (typeof window.updateSimulatedAcceleration === 'function') {
+        console.log("Attaching global updateSimulatedAcceleration to accel slider");
         DOM.simAccelSlider.addEventListener('input', window.updateSimulatedAcceleration);
     } else {
         console.warn("Fonction updateSimulatedAcceleration non disponible");
@@ -156,7 +193,11 @@ function initEventListeners() {
         });
     }
     
-    if (typeof window.toggleGPSMode === 'function') {
+    if (window.APP && window.APP.GPS && typeof window.APP.GPS.toggleGPSMode === 'function') {
+        console.log("Attaching APP.GPS.toggleGPSMode to GPS button");
+        DOM.btnSimGps.addEventListener('click', window.APP.GPS.toggleGPSMode);
+    } else if (typeof window.toggleGPSMode === 'function') {
+        console.log("Attaching global toggleGPSMode to GPS button");
         DOM.btnSimGps.addEventListener('click', window.toggleGPSMode);
     } else {
         console.warn("Fonction toggleGPSMode non disponible");

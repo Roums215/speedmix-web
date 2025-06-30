@@ -1,32 +1,65 @@
 // ---------- Gestion GPS et détection de vitesse ---------- //
 
-// Variables globales pour la simulation et le suivi GPS
+// Vérifier que l'espace global est disponible
+if (!window.SPEEDMIX) {
+    window.SPEEDMIX = {};
+    console.error("ERREUR CRITIQUE: common.js doit être chargé avant gps.js");
+}
+
+// Créer l'espace de noms pour les fonctionnalités GPS si nécessaire
+if (!window.SPEEDMIX.gps) {
+    window.SPEEDMIX.gps = {};
+}
+
+// Variables locales pour la simulation et le suivi GPS
 let simulationInterval = null;
 let gpsWatchId = null;
 let autoSimulationInterval = null;
+let previousPosition = null;
+let lastUpdateTime = 0;
 
-// Initialisation de la simulation GPS
-window.initSimulation = function() {
-    // Initialiser les valeurs de simulation
-    DOM.simSpeedValue.textContent = `${DOM.simSpeedSlider.value} km/h`;
-    DOM.simAccelValue.textContent = `${DOM.simAccelSlider.value} km/h/s`;
+// Références courtes pour faciliter l'accès
+const GPS = window.SPEEDMIX.gps;
+const APP_STATE = window.APP_STATE || {};
+const CONFIG = window.CONFIG || {
+    gps: { updateInterval: 1000, simulationMode: true },
+    acceleration: { threshold: 10, duration: 2 },
+    stabilization: { threshold: 5, duration: 5 }
+};
+
+// Fonction helper pour mettre à jour les messages
+function updateStatusMessage(message) {
+    if (window.SPEEDMIX && window.SPEEDMIX.utils && typeof window.SPEEDMIX.utils.updateStatusMessage === 'function') {
+        window.SPEEDMIX.utils.updateStatusMessage(message);
+    } else if (window.DOM && window.DOM.status) {
+        window.DOM.status.textContent = message;
+        console.log("Message d'état: " + message);
+    } else {
+        console.log("Message d'état: " + message);
+    }
 }
 
+// Initialisation de la simulation GPS
+GPS.initSimulation = function() {
+    // Initialiser les valeurs de simulation si DOM est disponible
+    if (window.DOM && window.DOM.simSpeedValue && window.DOM.simSpeedSlider) {
+        window.DOM.simSpeedValue.textContent = `${window.DOM.simSpeedSlider.value} km/h`;
+        window.DOM.simAccelValue.textContent = `${window.DOM.simAccelSlider.value} km/h/s`;
+    } else {
+        console.warn("DOM non disponible pour initSimulation");
+    }
+};
+
+// Version globale pour compatibilité
+window.initSimulation = GPS.initSimulation;
+
 // Démarrer la simulation de vitesse manuelle
-window.startSimulation = function() {
-    if (simulationInterval) clearInterval(simulationInterval);
+GPS.startSimulation = function() {
+    if (!window.APP_STATE) window.APP_STATE = {};
     
-    simulationInterval = setInterval(() => {
-        // Utiliser les valeurs des sliders
-        const simulatedSpeed = parseFloat(DOM.simSpeedSlider.value);
-        const simulatedAcceleration = parseFloat(DOM.simAccelSlider.value);
-        
-        // Mettre à jour l'état de l'application
-        updateSpeedData(simulatedSpeed, simulatedAcceleration);
-    }, CONFIG.gps.updateInterval);
+    window.APP_STATE.usingRealGPS = false;
+    window.APP_STATE.autoSimulation = false;
     
-    APP_STATE.usingRealGPS = false;
-    CONFIG.gps.simulationMode = true;
     updateStatusMessage("Mode simulation manuelle activé");
 }
 
