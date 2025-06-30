@@ -6,14 +6,14 @@ let gpsWatchId = null;
 let autoSimulationInterval = null;
 
 // Initialisation de la simulation GPS
-function initSimulation() {
+window.initSimulation = function() {
     // Initialiser les valeurs de simulation
     DOM.simSpeedValue.textContent = `${DOM.simSpeedSlider.value} km/h`;
     DOM.simAccelValue.textContent = `${DOM.simAccelSlider.value} km/h/s`;
 }
 
 // Démarrer la simulation de vitesse manuelle
-function startSimulation() {
+window.startSimulation = function() {
     if (simulationInterval) clearInterval(simulationInterval);
     
     simulationInterval = setInterval(() => {
@@ -31,7 +31,7 @@ function startSimulation() {
 }
 
 // Fonction pour démarrer la simulation automatique basée sur le temps
-function startAutoSimulation() {
+window.startAutoSimulation = function() {
     if (autoSimulationInterval) clearInterval(autoSimulationInterval);
     if (simulationInterval) clearInterval(simulationInterval);
     
@@ -145,7 +145,7 @@ function startAutoSimulation() {
 }
 
 // Arrêter l'auto-simulation
-function stopAutoSimulation() {
+window.stopAutoSimulation = function() {
     if (autoSimulationInterval) {
         clearInterval(autoSimulationInterval);
         autoSimulationInterval = null;
@@ -153,7 +153,7 @@ function stopAutoSimulation() {
 }
 
 // Arrêter la simulation GPS
-function stopSimulation() {
+window.stopSimulation = function() {
     if (simulationInterval) {
         clearInterval(simulationInterval);
         simulationInterval = null;
@@ -161,7 +161,7 @@ function stopSimulation() {
 }
 
 // Mettre à jour la vitesse simulée
-function updateSimulatedSpeed() {
+window.updateSimulatedSpeed = function() {
     const value = DOM.simSpeedSlider.value;
     DOM.simSpeedValue.textContent = `${value} km/h`;
     
@@ -171,7 +171,7 @@ function updateSimulatedSpeed() {
 }
 
 // Mettre à jour l'accélération simulée
-function updateSimulatedAcceleration() {
+window.updateSimulatedAcceleration = function() {
     const value = DOM.simAccelSlider.value;
     DOM.simAccelValue.textContent = `${value} km/h/s`;
     
@@ -183,7 +183,8 @@ function updateSimulatedAcceleration() {
 // Auto-simulation déjà déclarée en haut du fichier
 
 // Basculer entre GPS réel, simulation manuelle et auto-simulation
-function toggleGPSMode() {
+// Déclaration globale pour accessibilité depuis app.js
+window.toggleGPSMode = function() {
     // Si on était en mode GPS réel
     if (APP_STATE.usingRealGPS) {
         // Passer au mode simulation manuelle
@@ -230,7 +231,7 @@ function toggleGPSMode() {
         startMotionAndGPSTracking();
         DOM.btnSimGps.textContent = "Utiliser simulation";
     }
-function startMotionAndGPSTracking() {
+window.startMotionAndGPSTracking = function() {
     // Stopper les éventuelles instances précédentes
     stopGPSTracking();
     stopMotionTracking();
@@ -288,7 +289,7 @@ function startMotionAndGPSTracking() {
 }
 
 // Démarrer un suivi GPS amélioré spécifiquement pour tous appareils
-function startEnhancedGPSTracking() {
+window.startEnhancedGPSTracking = function() {
     if (!navigator.geolocation) {
         updateStatusMessage("GPS non disponible sur cet appareil");
         startSimulation();
@@ -376,7 +377,7 @@ function startEnhancedGPSTracking() {
 }
 
 // Arrêter le suivi GPS
-function stopGPSTracking() {
+window.stopGPSTracking = function() {
     if (gpsWatchId !== undefined) {
         navigator.geolocation.clearWatch(gpsWatchId);
         gpsWatchId = undefined;
@@ -385,7 +386,7 @@ function stopGPSTracking() {
 }
 
 // Démarrage du suivi GPS standard
-function startGPSTracking() {
+window.startGPSTracking = function() {
     if (!navigator.geolocation) {
         alert("La géolocalisation n'est pas prise en charge par votre navigateur.");
         updateStatusMessage("GPS non disponible!");
@@ -447,7 +448,7 @@ function startGPSTracking() {
 
 // Détecter le mouvement à l'aide de l'accéléromètre
 let motionSensorId = null;
-function startMotionTracking() {
+window.startMotionTracking = function() {
     // Support des capteurs de mouvement
     if (window.DeviceMotionEvent) {
         console.log("Démarrage suivi accéléromètre");
@@ -461,7 +462,7 @@ function startMotionTracking() {
 }
 
 // Arrêter le suivi des capteurs de mouvement
-function stopMotionTracking() {
+window.stopMotionTracking = function() {
     if (motionSensorId) {
         clearInterval(motionSensorId);
         motionSensorId = null;
@@ -471,7 +472,7 @@ function stopMotionTracking() {
 }
 
 // Gérer les données de l'accéléromètre
-function handleDeviceMotion(event) {
+window.handleDeviceMotion = function(event) {
     const currentTime = Date.now();
     
     // Obtenir les données d'accélération (avec et sans gravité)
@@ -510,7 +511,7 @@ function handleDeviceMotion(event) {
 }
 
 // Gérer une mise à jour de position GPS réussie
-function handlePositionSuccess(position) {
+window.handlePositionSuccess = function(position) {
     const currentTime = Date.now();
     const coords = position.coords;
     let speedKmh = 0;
@@ -638,7 +639,7 @@ function handlePositionSuccess(position) {
 }
 
 // Calcul de la distance entre deux points GPS (formule de Haversine)
-function calculateDistance(lat1, lon1, lat2, lon2) {
+window.calculateDistance = function(lat1, lon1, lat2, lon2) {
     // Conversion des latitudes/longitudes de degrés en radians
     const R = 6371000; // Rayon de la Terre en mètres
     const phi1 = lat1 * Math.PI / 180;
@@ -656,7 +657,7 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 }
 
 // Gérer une erreur de position GPS
-function handlePositionError(error) {
+window.handlePositionError = function(error) {
     let errorMessage;
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     
@@ -703,7 +704,7 @@ function handlePositionError(error) {
 // ---------- Analyse du comportement de conduite ---------- //
 
 // Mettre à jour les données de vitesse et analyser le comportement
-function updateSpeedData(speed, acceleration) {
+window.updateSpeedData = function(speed, acceleration) {
     // Enregistrer les données actuelles
     APP_STATE.currentSpeed = speed;
     APP_STATE.currentAcceleration = acceleration;
@@ -737,7 +738,7 @@ function updateSpeedData(speed, acceleration) {
 }
 
 // Vérifier si la vitesse s'est stabilisée
-function isSpeedStabilized() {
+window.isSpeedStabilized = function() {
     if (APP_STATE.speedHistory.length < 3) return false;
     
     const { threshold, duration } = CONFIG.stabilization;
@@ -759,7 +760,7 @@ function isSpeedStabilized() {
 }
 
 // Analyser le comportement de conduite
-function analyzeBehavior() {
+window.analyzeBehavior = function() {
     const isAccelerating = APP_STATE.currentAcceleration > CONFIG.acceleration.threshold;
     const speedCategory = categorizeSpeed(APP_STATE.currentSpeed);
     
@@ -777,7 +778,7 @@ function analyzeBehavior() {
 }
 
 // Catégoriser la vitesse
-function categorizeSpeed(speed) {
+window.categorizeSpeed = function(speed) {
     if (speed < 20) return 'very_low';
     if (speed < 50) return 'low';
     if (speed < 80) return 'medium';
@@ -785,7 +786,7 @@ function categorizeSpeed(speed) {
 }
 
 // Calculer le score d'énergie pour adapter l'intensité musicale
-function calculateEnergyScore(speed, acceleration) {
+window.calculateEnergyScore = function(speed, acceleration) {
     // Score de base lié à la vitesse (0-70)
     const speedScore = Math.min(70, (speed / 120) * 70);
     
@@ -797,7 +798,7 @@ function calculateEnergyScore(speed, acceleration) {
 }
 
 // Mettre à jour l'affichage de la vitesse
-function updateSpeedDisplay() {
+window.updateSpeedDisplay = function() {
     // Vitesse
     DOM.speed.textContent = `${APP_STATE.currentSpeed.toFixed(1)} `;
     
@@ -822,7 +823,7 @@ function updateSpeedDisplay() {
 }
 
 // Mettre à jour le message d'état
-function updateStatusMessage(message) {
+window.updateStatusMessage = function(message) {
     if (DOM.status) {
         DOM.status.textContent = message;
     } else {
@@ -831,7 +832,7 @@ function updateStatusMessage(message) {
 }
 
 // Fonction pour adapter la musique à la vitesse
-function adaptMusicToSpeed(behavior) {
+window.adaptMusicToSpeed = function(behavior) {
     // Cette fonction est appelée par updateSpeedData
     // Elle doit être définie pour éviter les erreurs
     if (!APP_STATE.isPlaying || APP_STATE.tracks.length === 0) {
@@ -845,7 +846,7 @@ function adaptMusicToSpeed(behavior) {
 }
 
 // Formater le temps au format mm:ss
-function formatTime(seconds) {
+window.formatTime = function(seconds) {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
