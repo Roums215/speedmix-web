@@ -230,34 +230,64 @@ function toggleGPSMode() {
         startMotionAndGPSTracking();
         DOM.btnSimGps.textContent = "Utiliser simulation";
     }
-}
-
-// Démarrer le suivi de mouvement réel (priorité au GPS pour iOS)
 function startMotionAndGPSTracking() {
-    // Réinitialiser l'historique des vitesses et positions
-    APP_STATE.speedHistory = [];
-    APP_STATE.previousSpeed = 0;
-    APP_STATE.previousPosition = null;
-    APP_STATE.lastUpdate = Date.now();
-    APP_STATE.motionTotal = 0;
-    APP_STATE.motionEvents = 0;
+    // Stopper les éventuelles instances précédentes
+    stopGPSTracking();
+    stopMotionTracking();
+    stopSimulation();
+    stopAutoSimulation();
+    
+    // Indiquer qu'on utilise les capteurs réels
     APP_STATE.usingRealGPS = true;
     CONFIG.gps.simulationMode = false;
     
-    // Détection de la plateforme pour adapter la stratégie
+    // Détection de la plateforme
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isHTTPS = location.protocol === 'https:';
     
-    // Sur iOS, priorité au GPS car l'accéléromètre nécessite HTTPS
-    if (isIOS) {
-        startEnhancedGPSTracking();
-    } else {
-        // Sur d'autres plateformes, essayer d'utiliser l'accéléromètre et le GPS
+    console.log("Démarrage du suivi de mouvement");
+    console.log("Appareil mobile:", isMobile ? "Oui" : "Non");
+    console.log("iOS:", isIOS ? "Oui" : "Non");
+    console.log("HTTPS:", isHTTPS ? "Oui" : "Non");
+    console.log("User Agent:", navigator.userAgent);
+    
+    updateStatusMessage("📱 Activation des capteurs...");
+    
+    // Sur les appareils mobiles avec HTTPS, demander l'accès à l'accéléromètre
+    if (isMobile && isHTTPS) {
+        if (window.DeviceMotionEvent && typeof window.DeviceMotionEvent.requestPermission === 'function') {
+            // iOS 13+ nécessite une demande explicite
+            window.DeviceMotionEvent.requestPermission()
+                .then(response => {
+                    if (response === 'granted') {
+                        console.log("Permission accéléromètre accordée");
+                        startMotionTracking();
+                    } else {
+                        console.warn("Permission accéléromètre refusée:", response);
+                        updateStatusMessage("Accès accéléromètre refusé");
+                    }
+                })
+                .catch(error => {
+                    console.error("Erreur accéléromètre:", error);
+                    // On lance quand même le tracking accéléromètre standard
+                    startMotionTracking();
+                });
+        } else if (window.DeviceMotionEvent) {
+            // Android et autres appareils sans besoin de permission explicite
+            console.log("Démarrage accéléromètre standard");
+            startMotionTracking();
+        }
+    } else if (window.DeviceMotionEvent) {
+        // Si ce n'est pas un mobile ou pas HTTPS, on essaie quand même l'accéléromètre
         startMotionTracking();
-        startGPSBackup();
     }
+    
+    // Toujours essayer de démarrer le suivi GPS (avec nouvelles options optimisées)
+    startGPSTracking();
 }
 
-// Démarrer un suivi GPS amélioré spécifiquement pour iOS
+// Démarrer un suivi GPS amélioré spécifiquement pour tous appareils
 function startEnhancedGPSTracking() {
     if (!navigator.geolocation) {
         updateStatusMessage("GPS non disponible sur cet appareil");
@@ -265,18 +295,31 @@ function startEnhancedGPSTracking() {
         return;
     }
     
-    // Méthode plus directe pour iOS
+    // Méthode optimisée pour tous appareils, spécialement mobiles
     // Ajouter un indicateur visuel que nous essayons d'obtenir la position
-    updateStatusMessage("Demande de position GPS en cours...");
+    updateStatusMessage("📍 Initialisation du GPS...");
     document.body.classList.add('requesting-gps');
     
-    // Options optimisées pour GPS en voiture
+    // Découvrir l'agent utilisateur pour le débogage
+    console.log("Agent utilisateur:", navigator.userAgent);
+    console.log("Plateforme:", navigator.platform);
+    console.log("Protocole:", window.location.protocol);
+    
+    // Détecter si on est sur un appareil mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    // Options optimisées pour GPS en voiture (plus agressives sur mobile)
     const options = {
-        enableHighAccuracy: true,   // Force l'utilisation du GPS haute précision
-        timeout: 30000,            // Temps d'attente plus long (30s)
-        maximumAge: 0,             // Toujours obtenir une nouvelle position
-        distanceFilter: 1          // Mettre à jour tous les 1 mètre de déplacement
+        enableHighAccuracy: true,       // Force l'utilisation du GPS haute précision
+        timeout: isMobile ? 15000 : 30000,  // Temps d'attente adapté
+        maximumAge: 0,                 // Toujours obtenir une nouvelle position
+        distanceFilter: isMobile ? 0 : 1  // Plus sensible sur mobile
     };
+    
+    // Ajouter un message pour mobile
+    if (isMobile && window.location.protocol === 'https:') {
+        updateStatusMessage("📱 GPS mobile détecté! Initialisation...");
+    }
     
     // Tenter d'obtenir une position une seule fois d'abord
     navigator.geolocation.getCurrentPosition(
@@ -327,39 +370,21 @@ function startEnhancedGPSTracking() {
             startSimulation();
             DOM.btnSimGps.textContent = "Réessayer GPS réel";
         },
-        // Options adaptées à iOS
+        // Options adaptées à tous appareils
         options
     );
 }
 
-// Démarrer le GPS comme source secondaire (quand l'accéléromètre est la source principale)
-function startGPSBackup() {
-    if (!navigator.geolocation) return;
-    
-    // Options de géolocalisation
-    const options = {
-        enableHighAccuracy: true,
-        timeout: 5000,
-        maximumAge: 500
-    };
-    
-    try {
-        gpsWatchId = navigator.geolocation.watchPosition(
-            handlePositionSuccess,
-            (error) => {
-                // On ne revient pas à la simulation si on a déjà les capteurs de mouvement
-                console.warn("Erreur GPS, utilisation uniquement des capteurs de mouvement:", error);
-            },
-            options
-        );
-        
-        updateStatusMessage("GPS + Accéléromètre actifs");
-    } catch (e) {
-        console.warn("GPS non disponible en source secondaire");
+// Arrêter le suivi GPS
+function stopGPSTracking() {
+    if (gpsWatchId !== undefined) {
+        navigator.geolocation.clearWatch(gpsWatchId);
+        gpsWatchId = undefined;
     }
+    APP_STATE.usingRealGPS = false;
 }
 
-// Démarrage manuel de la fonction GPS originale (pour référence)
+// Démarrage du suivi GPS standard
 function startGPSTracking() {
     if (!navigator.geolocation) {
         alert("La géolocalisation n'est pas prise en charge par votre navigateur.");
@@ -368,7 +393,12 @@ function startGPSTracking() {
     }
     
     // Vérifier et demander les permissions
-    requestGPSPermission();
+    if (navigator.permissions) {
+        navigator.permissions.query({ name: 'geolocation' })
+            .then(permissionStatus => {
+                console.log('État permission GPS:', permissionStatus.state);
+            });
+    }
     
     updateStatusMessage("Démarrage du GPS...");
     
@@ -378,18 +408,29 @@ function startGPSTracking() {
     APP_STATE.previousPosition = null;
     APP_STATE.lastUpdate = Date.now();
     
-    // Options de géolocalisation
+    // Détecter si on est sur un appareil mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    // Options de géolocalisation optimisées pour mobile
     const options = {
-        enableHighAccuracy: true,  // Utiliser GPS haute précision (si disponible)
-        timeout: 5000,             // Délai d'attente maximal
-        maximumAge: 500            // Utiliser des données récentes (max 0.5s)
+        enableHighAccuracy: true,       // Utiliser GPS haute précision (si disponible)
+        timeout: isMobile ? 10000 : 15000, // Délai d'attente maximal
+        maximumAge: 0,                 // Toujours utiliser des données récentes
+        distanceFilter: isMobile ? 0 : 1  // Intervalle minimal de mise à jour
     };
     
     // Démarrer le suivi de position
     try {
         gpsWatchId = navigator.geolocation.watchPosition(
             handlePositionSuccess,
-            handlePositionError,
+            (error) => {
+                console.warn("Erreur GPS:", error.code, error.message);
+                if (error.code === 1) { // PERMISSION_DENIED
+                    updateStatusMessage("\u26a0️ Accès GPS refusé. Vérifiez vos paramètres.");
+                } else {
+                    updateStatusMessage("Erreur GPS: " + error.message);
+                }
+            },
             options
         );
         
@@ -397,57 +438,36 @@ function startGPSTracking() {
         CONFIG.gps.simulationMode = false;
         
         // Message de confirmation
-        updateStatusMessage("GPS actif - en attente de signal...");        
+        updateStatusMessage("GPS activé - en attente de signal...");        
     } catch (e) {
         console.error("Erreur lors du démarrage du GPS:", e);
         updateStatusMessage("Erreur d'activation GPS");
-        // Revenir en mode simulation
-        startSimulation();
     }
 }
 
-// Détecter le mouvement à l'aide de l'accéléromètre et du gyroscope
+// Détecter le mouvement à l'aide de l'accéléromètre
 let motionSensorId = null;
 function startMotionTracking() {
     // Support des capteurs de mouvement
     if (window.DeviceMotionEvent) {
-        // Demander l'autorisation sur iOS 13+
-        if (typeof DeviceMotionEvent.requestPermission === 'function') {
-            DeviceMotionEvent.requestPermission()
-                .then(permissionState => {
-                    if (permissionState === 'granted') {
-                        startDeviceMotionListening();
-                    } else {
-                        updateStatusMessage("Permission accéléromètre refusée");
-                    }
-                })
-                .catch(console.error);
-        } else {
-            // Autres navigateurs
-            startDeviceMotionListening();
-        }
+        console.log("Démarrage suivi accéléromètre");
+        // Ajout un écouteur d'événements pour l'accéléromètre
+        window.addEventListener('devicemotion', handleDeviceMotion);
+        updateStatusMessage("Capteurs de mouvement actifs");
     } else {
+        console.warn("Accéléromètre non disponible");
         updateStatusMessage("Capteurs de mouvement non disponibles");
     }
 }
 
-// Démarrer l'écoute des événements de mouvement
-function startDeviceMotionListening() {
-    // Ajout un écouteur d'événements pour l'accéléromètre
-    window.addEventListener('devicemotion', handleDeviceMotion);
-    updateStatusMessage("Capteurs de mouvement actifs");
-    console.log("Démarrage du suivi de mouvement");
+// Arrêter le suivi des capteurs de mouvement
+function stopMotionTracking() {
+    if (motionSensorId) {
+        clearInterval(motionSensorId);
+        motionSensorId = null;
+    }
     
-    // Si le navigateur s'arrête au bout d'un moment, réactiver périodiquement
-    motionSensorId = setInterval(() => {
-        const now = Date.now();
-        if (now - APP_STATE.lastUpdate > 2000) { // Pas de mise à jour depuis 2 secondes
-            updateStatusMessage("Réactivation capteurs de mouvement...");
-            // Tenter de redémarrer le suivi
-            window.removeEventListener('devicemotion', handleDeviceMotion);
-            window.addEventListener('devicemotion', handleDeviceMotion);
-        }
-    }, 2000);
+    window.removeEventListener('devicemotion', handleDeviceMotion);
 }
 
 // Gérer les données de l'accéléromètre
@@ -470,94 +490,23 @@ function handleDeviceMotion(event) {
         accelZ = accelerationGravity.z || 0;
     }
     
+    // Log des données d'accélération pour débogage
+    console.log(`Accéléromètre: X=${accelX.toFixed(2)}, Y=${accelY.toFixed(2)}, Z=${accelZ.toFixed(2)}`);
+    
     // Magnitude totale du mouvement
     const motionMagnitude = Math.sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ);
     
-    // Accumuler les mesures pour une estimation plus stable
-    APP_STATE.motionTotal += motionMagnitude;
-    APP_STATE.motionEvents++;
+    // Calcul direct de vitesse et accélération à partir de l'accéléromètre
+    // Pour une démonstration plus réactive
+    const speedEstimate = motionMagnitude * 5; // Multiplication simple pour démonstration
+    const accel = motionMagnitude;
     
-    // Calcul de la "vitesse" basée sur l'intensité des mouvements
-    // Mise à jour tous les ~500ms pour éviter les rafraîchissements trop fréquents
-    const timeDiff = currentTime - (APP_STATE.lastMotionUpdate || 0);
-    if (timeDiff >= 500 && APP_STATE.motionEvents > 0) {
-        const avgMotion = APP_STATE.motionTotal / APP_STATE.motionEvents;
-        
-        // Conversion de l'intensité du mouvement en une "vitesse" représentative
-        // Calibrage empirique: un mouvement modéré donne ~5-10 m/s²
-        let speedEstimate = 0;
-        
-        if (avgMotion < 0.5) {
-            // Presque immobile
-            speedEstimate = 0;
-        } else if (avgMotion < 3) {
-            // Mouvement léger à modéré (marche lente)
-            speedEstimate = avgMotion * 1.5;
-        } else if (avgMotion < 8) {
-            // Mouvement modéré à énergique (marche rapide)
-            speedEstimate = 4.5 + (avgMotion - 3) * 2;
-        } else {
-            // Mouvement énergique à intense (course)
-            speedEstimate = 14.5 + (avgMotion - 8) * 2.5;
-            // Limitation de la vitesse maximale à 30 km/h
-            if (speedEstimate > 30) speedEstimate = 30;
-        }
-        
-        // Calcul de l'accélération
-        const oldSpeed = APP_STATE.currentSpeed || 0;
-        const accel = (speedEstimate - oldSpeed) / (timeDiff / 1000);
-        
-        // Mise à jour des données et de l'interface
-        updateSpeedData(speedEstimate, accel);
-        APP_STATE.lastMotionUpdate = currentTime;
-        APP_STATE.lastUpdate = currentTime;
-        APP_STATE.motionTotal = 0;
-        APP_STATE.motionEvents = 0;
-        
-        // Message de débogage
-        console.log(`Motion: ${avgMotion.toFixed(2)} m/s² -> Vitesse estimée: ${speedEstimate.toFixed(2)} km/h`);
-    }
-}
-
-// Arrêter le suivi des capteurs de mouvement
-function stopMotionTracking() {
-    if (motionSensorId) {
-        clearInterval(motionSensorId);
-        motionSensorId = null;
-    }
+    // Mise à jour de l'interface
+    updateSpeedData(speedEstimate, accel);
+    updateStatusMessage(`📱 Accéléromètre: ${speedEstimate.toFixed(1)} km/h`);
     
-    window.removeEventListener('devicemotion', handleDeviceMotion);
-}
-
-// Demander la permission de géolocalisation explicitement
-function requestGPSPermission() {
-    if (navigator.permissions) {
-        navigator.permissions.query({ name: 'geolocation' })
-            .then(permissionStatus => {
-                if (permissionStatus.state === 'granted') {
-                    console.log('Permission GPS déjà accordée');
-                } else if (permissionStatus.state === 'prompt') {
-                    console.log('Permission GPS sera demandée');
-                    // Une demande explicite sera faite par watchPosition
-                } else if (permissionStatus.state === 'denied') {
-                    updateStatusMessage("Permission GPS refusée. Veuillez l'autoriser dans les paramètres du navigateur.");
-                    console.warn('Permission GPS refusée par l\'utilisateur');
-                    startSimulation(); // Revenir en mode simulation
-                }
-            })
-            .catch(error => {
-                console.error('Erreur lors de la vérification des permissions:', error);
-            });
-    }
-}
-
-// Arrêter le suivi GPS
-function stopGPSTracking() {
-    if (gpsWatchId !== undefined) {
-        navigator.geolocation.clearWatch(gpsWatchId);
-        gpsWatchId = undefined;
-    }
-    APP_STATE.usingRealGPS = false;
+    // Affichage du débogage
+    console.log(`Motion: ${motionMagnitude.toFixed(2)} m/s² -> Vitesse: ${speedEstimate.toFixed(2)} km/h`);
 }
 
 // Gérer une mise à jour de position GPS réussie
@@ -567,19 +516,28 @@ function handlePositionSuccess(position) {
     let speedKmh = 0;
     let acceleration = 0;
     
-    // Détecter si on est sur iOS pour afficher plus d'infos
+    // Détecter si on est sur mobile et iOS pour adapter le traitement
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
     // Détection de précision
     const accuracy = coords.accuracy || 0; // en mètres
     const isHighAccuracy = accuracy < 20; // moins de 20m = bonne précision
-        
+    
     console.log('Position GPS reçue:', position);
-        
+    console.log('Coords:', JSON.stringify({
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        accuracy: coords.accuracy,
+        speed: coords.speed,
+        heading: coords.heading,
+        timestamp: position.timestamp
+    }));
+    
     // Méthode 1: Utiliser la vitesse fournie par l'API Geolocation (si disponible)
+    // Sur mobile, la valeur coords.speed est généralement fiable
     if (coords.speed !== null && coords.speed !== undefined && coords.speed >= 0) {
         // La vitesse est fournie en m/s, convertir en km/h
-        // REMARQUE: Certain navigateurs retournent 0 même lorsqu'on se déplace
         speedKmh = coords.speed * 3.6;
         console.log(`Vitesse GPS directe: ${speedKmh.toFixed(2)} km/h (${coords.speed} m/s) (précision: ${accuracy}m)`);
     } 
